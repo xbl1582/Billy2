@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, initial-scale=1, shrink-to-fit=no">
+    <div th:replace="~{admin/common :: common-link}"></div>
+    <link rel="stylesheet" th:href="@{'/admin/assets/js/plugins/zTree_v3/css/zTreeStyle/zTreeStyle.css'}">
+    <link rel="stylesheet" th:href="@{'/admin/assets/js/plugins/codemirror/lib/codemirror.css'}">
+    <link rel="stylesheet" th:href="@{'/admin/assets/js/plugins/codemirror/addon/lint/lint.css'}">
+    <link rel="stylesheet" th:href="@{'/admin/assets/js/plugins/codemirror/addon/dialog/dialog.css'}">
+    <link rel="stylesheet" th:href="@{'/admin/assets/js/plugins/codemirror/theme/tomorrow-night-bright.css'}">
+    <style>
+
+        .catalog-container {
+            width: 20%;
+            display: inline-block;
+        }
+
+        .code-container {
+            width: 80%;
+            float: right;
+            display: inline-block;
+        }
+
+        .catalog-content {
+            padding: 10px;
+            border: 1px solid #aaa;
+            height: calc(100vh - 200px);
+            overflow: auto;
+        }
+
+        .code-content {
+            width: 100%;
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            resize: none;
+            outline:none;
+            background-color: #000;
+            color: #9d9fa7;
+        }
+
+        .CodeMirror {
+            height: calc(100vh - 200px);
+        }
+    </style>
+</head>
+<body>
+
+<div class="content">
+    <div class="block block-fx-shadow">
+        <div class="block-content">
+            <div class="row justify-content-center py-20">
+                <div class="col-md-12">
+                    <div class="catalog-container">
+                        <div class="catalog-content">
+                            <h4 th:text="${theme.name + ' 主题目录'}" style="text-align: center"></h4>
+                            <img id="loadImg" th:src="@{'/admin/assets/images/load-code.gif'}" width="64">
+                            <ul id="catalogTree" class="ztree"></ul>
+                        </div>
+                    </div>
+                    <div class="code-container">
+                        <textarea class="code-content" id="code-content"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="row py-20">
+                <div class="col-md-8">
+                    友情提醒：点击编辑区，① Ctrl + F：关键字查询  ② ALT + G：行数定位
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-alt-primary pull-right" id="submitBtn" >
+                            <i class="fa fa-send mr-5"></i> 保存
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div th:replace="~{admin/common :: common-script}"></div>
+<script th:src="@{'/admin/assets/js/plugins/zTree_v3/js/jquery.ztree.all.min.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/lib/codemirror.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/selection/active-line.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/edit/closebrackets.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/edit/matchbrackets.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/mode/xml/xml.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/mode/javascript/javascript.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/mode/css/css.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/mode/htmlmixed/htmlmixed.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/lint/jshint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/lint/jsonlint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/lint/csslint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/lint/lint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/lint/javascript-lint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/lint/json-lint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/lint/css-lint.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/search/searchcursor.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/dialog/dialog.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/search/search.js'}"></script>
+<script th:src="@{'/admin/assets/js/plugins/codemirror/addon/search/jump-to-line.js'}"></script>
+<script type="text/javascript" th:inline="javascript">
+    let theme = [[${theme}]];
+    let modeArr = [];
+    modeArr["js"] = "javascript";
+    modeArr["css"] = "css";
+    modeArr["html"] = "text/html";
+    modeArr["json"] = "application/json";
+    let ThemeManager = {
+        path: "",
+        editor: null,
+        init: function (theme) {
+            ThemeManager.loadCatalog(theme);
+            ThemeManager.bindEvent();
+        },
+        loadCatalog: function(theme) {
+            $.hexo.action.sendRequest({
+                type: "GET",
+                url: BASE_URL + "/getCatalogList.json",
+                params: {"id": theme.id},
+                callback: function(resp) {
+                    $("#loadImg").remove();
+                    ThemeManager.initCatalogTree(resp.data);
+                }
+            });
+        },
+        initCatalogTree: function (zNodes) {
+            let setting = {
+                callback: {
+                    beforeClick: function (treeId, treeNode, clickFlag) {
+                        ThemeManager.path = treeNode.path;
+                        $.ajax({
+                            type: "POST",
+                            url: BASE_URL + "/getCode.json",
+                            data: {"path": ThemeManager.path},
+                            dataType: "JSON",
+                            success: function (resp) {
+                                if (resp.success) {
+                                    if (ThemeManager.editor == null) {
+                                        ThemeManager.editor = CodeMirror.fromTextArea(document.getElementById("code-content"), {
+                                            theme: "tomorrow-night-bright",
+                                            lineNumbers: true, // 显示行号
+                                            lineWrapping:true, //是否强制换行
+                                            smartIndent: true, //智能缩进
+                                            styleActiveLine: true, // 显示选中行的样式
+                                            matchBrackets: true, // 匹配结束符号，比如"]、}"
+                                            gutters: ["CodeMirror-lint-markers"],
+                                            lint: true,  // 语法检测
+                                            autofocus: true,  //自动聚焦
+                                            autoCloseBrackets: true , // 自动闭合符号
+                                        });
+
+                                        ThemeManager.editor.on("change", function() {
+                                            let index = ThemeManager.path.lastIndexOf(".");
+                                            let suffix = ThemeManager.path.substring(index + 1);
+                                            ThemeManager.editor.setOption("mode", modeArr[suffix]);
+                                        });
+                                    }
+                                    ThemeManager.editor.setValue(resp.data);
+                                }
+                            }
+                        });
+                    }
+                }
+            };
+            $.fn.zTree.init($("#catalogTree"), setting, zNodes);
+        },
+        bindEvent: function () {
+            $("#submitBtn").on("click", function () {
+                $.hexo.modal.confirm("确定要修改该文件吗?", function () {
+                    $.ajax({
+                        type: "POST",
+                        url: BASE_URL + "/editCode.json",
+                        data: {"path": ThemeManager.path, "content": ThemeManager.editor.getValue()},
+                        dataType: "JSON",
+                        success: function (resp) {
+                            $.hexo.modal.tip("请求成功", resp.msg);
+                        }
+                    });
+                });
+            });
+        }
+    };
+
+    ThemeManager.init(theme);
+</script>
+</body>
+</html>

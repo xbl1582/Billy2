@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh" mode="light" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/web/thymeleaf/layout">
+<head>
+    <div th:replace="~{theme/default/common :: meta}"></div>
+    <div th:replace="~{theme/default/common :: link}"></div>
+</head>
+<body>
+    <div id="animate" th:if="${activeTheme.configMap['animated'] == 'true'}" style="position: fixed;width: 100%; height: 100%">
+        <script type='text/javascript' th:src="@{${prefix} + '/source/js/ribbon.js'}"></script>
+    </div>
+    <div class="ml-container" id="pageContainer">
+        <div class="container">
+            <!-- 导航 -->
+            <div th:replace="~{theme/default/common :: nav}"></div>
+
+            <!-- 内容 -->
+            <div layout:fragment="content"></div>
+
+            <!-- 尾部 -->
+            <div th:replace="~{theme/default/common :: footer}"></div>
+        </div>
+        <div th:replace="~{theme/default/common :: script}"></div>
+    </div>
+
+</body>
+</html>
